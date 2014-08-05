@@ -1,30 +1,4 @@
-// class DBusErrorStructure(ctypes.Structure):
-//     _fields_ = [
-//         ('name', ctypes.c_char_p),
-//         ('message', ctypes.c_char_p),
-//         ('dummy1', ctypes.c_uint),
-//         ('dummy2', ctypes.c_uint),
-//         ('dummy3', ctypes.c_uint),
-//         ('dummy4', ctypes.c_uint),
-//         ('dummy5', ctypes.c_uint),
-//         ('padding1', ctypes.c_void_p)
-//     ]
-
-//     def is_set(self):
-//         return dbus.dbus_error_is_set(ctypes.pointer(self)) > 0
-
-//     def raise_if_set(self):
-//         if self.is_set():
-//             raise DBusError(self)
-// 
-// def dbus_connection_open(dbus_addr):
-//     error = DBusErrorStructure()
-//     conn = dbus.dbus_connection_open(dbus_addr, ctypes.pointer(error))
-//     error.raise_if_set()
-//     return conn.contents
 #![feature(unsafe_destructor)]
-extern crate debug;
-
 extern crate libc;
 use libc::{c_char, c_int, c_uint, c_void};
 
