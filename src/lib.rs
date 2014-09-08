@@ -238,7 +238,6 @@ pub struct DBusConnection {
 impl Drop for DBusConnection {
     fn drop(&mut self) {
         unsafe {
-            dbus_connection_close(self.ptr);
             dbus_connection_unref(self.ptr);
         }
     }
