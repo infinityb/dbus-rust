@@ -1,21 +1,20 @@
-#![feature(unsafe_destructor)]
-#![allow(dead_code)]
+#![feature(unsafe_destructor, globs)]
+#![allow(non_snake_case)]
 
 extern crate libc;
+
 use libc::{c_char, c_int, c_uint, c_void};
 
 use std::os;
 use std::ptr;
-use std::io::timer::sleep;
 use std::c_str::CString;
 
+pub type DBusResult<T> = Result<T, DBusError>;
 
-type DBusResult<T> = Result<T, DBusError>;
-
-
+#[allow(dead_code)]
 #[link(name = "dbus-1")]
 extern {
-    fn dbus_connection_open(address: *const u8, 
+    fn dbus_connection_open(address: *const u8,
                             error: *mut DBusError
                            ) -> *mut CDBusConnection;
     fn dbus_connection_open_private(address: *const u8,
@@ -35,16 +34,13 @@ extern {
 }
 
 
-pub type DBusInterfaceElement = self::DBusInterfaceElement::DBusInterfaceElement;
-pub mod DBusInterfaceElement {
-    pub enum DBusInterfaceElement {
-        Method(String, String, Vec<String>, String),
-        Signal(String, String)
-    }
+pub enum DBusInterfaceElement {
+    Method(String, String, Vec<String>, String),
+    Signal(String, String)
 }
 
 
-struct DBusInterface {
+pub struct DBusInterface {
     name: String,
     members: Vec<DBusInterfaceElement>
 }
@@ -64,19 +60,23 @@ impl DBusInterface {
 
     pub fn add_method(&mut self, name: &str, argspec: &str,
                       argnames: Vec<String>, retspec: &str) {
-        self.add_member(DBusInterfaceElement::Method(
+        self.add_member(Method(
             String::from_str(name),
             String::from_str(argspec),
             argnames,
             String::from_str(retspec)
         ));
     }
-    
+
     pub fn add_signal(&mut self, name: &str, retspec: &str) {
-        self.add_member(DBusInterfaceElement::Signal(
+        self.add_member(Signal(
             String::from_str(name),
             String::from_str(retspec)
         ));
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_slice()
     }
 }
 
@@ -102,7 +102,7 @@ pub mod DBusDispatchStatus {
             COMPLETE => Complete,
             NEED_MEMORY => NeedMemory,
             _ => Unknown(result)
-            
+
         }
     }
 }
@@ -115,6 +115,7 @@ pub mod DBusHandlerResult {
     pub static NOT_YET_HANDLED: i32 = 1;
     pub static NEED_MEMORY: i32 = 2;
 
+    #[repr(C)]
     pub enum DBusHandlerResult {
         Handled,
         NotYetHandled,
@@ -136,6 +137,7 @@ pub mod DBusHandlerResult {
 
 pub type DBusTimeout = self::DBusTimeout::DBusTimeout;
 pub mod DBusTimeout {
+    #[repr(C)]
     pub enum DBusTimeout {
         Default,
         Infinite,
@@ -162,8 +164,8 @@ pub mod DBusTimeout {
     }
 }
 
-
-struct DBusError {
+#[repr(C)]
+pub struct DBusError {
     name: *const c_char,
     message: *const c_char,
     _bitfields: c_uint,
@@ -196,7 +198,7 @@ impl DBusError {
             dbus_error_is_set(self) > 0
         }
     }
-    
+
     pub fn get_name(&self) -> CString {
         unsafe {
             CString::new(self.name, false)
@@ -219,15 +221,15 @@ impl Drop for DBusError {
     }
 }
 
-
+#[repr(C)]
 struct CDBusConnection {
     refcount: i32,
     _extra: [u8, ..1020]
     // ...
 }
 
-
-struct DBusConnection {
+#[repr(C)]
+pub struct DBusConnection {
     ptr: *mut CDBusConnection
 }
 
@@ -236,7 +238,6 @@ struct DBusConnection {
 impl Drop for DBusConnection {
     fn drop(&mut self) {
         unsafe {
-            dbus_connection_close(self.ptr);
             dbus_connection_unref(self.ptr);
         }
     }
@@ -247,7 +248,7 @@ impl DBusConnection {
     pub fn open(address: &[u8]) -> DBusResult<DBusConnection> {
         let mut error = DBusError::new_unsafe();
         let conn: *mut CDBusConnection = unsafe {
-            dbus_connection_open_private(
+            dbus_connection_open(
                 address.as_ptr(),
                 &mut error)
         };
@@ -315,56 +316,54 @@ pub fn get_dbus_session_address() -> Option<String> {
 }
 
 
-#[test]
-fn test_connection() {
-    let address = match get_dbus_session_address() {
-        Some(address) => address,
-        None => fail!("Couldn't read environment variable DBUS_SESSION_BUS_ADDRESS")
-    };
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    let mut dbus_conn = match DBusConnection::open(address.as_bytes()) {
-        Ok(conn) => conn,
-        Err(err) => {
-            fail!("DBus Connection failure: {}: {}", err.get_name(), err.get_message());
-        }
-    };
+    #[test]
+    fn test_connection() {
+        let address = match get_dbus_session_address() {
+            Some(address) => address,
+            None => fail!("Couldn't read environment variable DBUS_SESSION_BUS_ADDRESS")
+        };
 
-    match dbus_conn.bus_register() {
-        Ok(_) => (),
-        Err(err) => {
-            fail!("DBus Registration failure failure: {}: {}", err.get_name(), err.get_message());
-        }
-    };
+        let mut dbus_conn = match DBusConnection::open(address.as_bytes()) {
+            Ok(conn) => conn,
+            Err(err) => {
+                fail!("DBus Connection failure: {}: {}", err.get_name(), err.get_message());
+            }
+        };
 
-    let bus_name = "org.yasashiisyndicate.dbusexample";
-    match dbus_conn.bus_request_name(bus_name, 0) {
-        Ok(_) => (),
-        Err(err) => {
-            fail!("DBus RequestName failure failure: {}: {}", err.get_name(), err.get_message());
-        }
-    };
+        match dbus_conn.bus_register() {
+            Ok(_) => (),
+            Err(err) => {
+                fail!("DBus Registration failure failure: {}: {}", err.get_name(), err.get_message());
+            }
+        };
 
-    println!("connected to {} as {}", dbus_conn.get_server_id(), bus_name);
+        let bus_name = "org.yasashiisyndicate.dbusexample";
+        match dbus_conn.bus_request_name(bus_name, 0) {
+            Ok(_) => (),
+            Err(err) => {
+                fail!("DBus RequestName failure failure: {}: {}", err.get_name(), err.get_message());
+            }
+        };
+
+        println!("connected to {} as {}", dbus_conn.get_server_id(), bus_name);
+    }
+
+
+    #[test]
+    fn test_dbus_interface() {
+        let mut dbus_introspectable = DBusInterface::new(
+            "org.freedesktop.DBus.Introspectable");
+        dbus_introspectable.add_method("Introspect", "", vec![], "");
+
+        let mut dbus_peer = DBusInterface::new("org.freedesktop.DBus.Peer");
+        dbus_peer.add_method("Ping", "", vec![], "");
+        dbus_peer.add_method("GetMachineId", "", vec![], "s");
+
+        let mut frobulator = DBusInterface::new("org.yasashiisyndicate.Frobulator");
+        frobulator.add_method("Frobulate", "s", vec![String::from_str("value")], "s");
+    }
 }
-
-
-#[test]
-fn test_dbus_interface() {
-    let mut dbus_introspectable = DBusInterface::new(
-        "org.freedesktop.DBus.Introspectable");
-    dbus_introspectable.add_method("Introspect", "", vec![], "");
-
-    let mut dbus_peer = DBusInterface::new("org.freedesktop.DBus.Peer");
-    dbus_peer.add_method("Ping", "", vec![], "");
-    dbus_peer.add_method("GetMachineId", "", vec![], "s");
-
-    let mut frobulator = DBusInterface::new("org.yasashiisyndicate.Frobulator");
-    frobulator.add_method("Frobulate", "s", vec![String::from_str("value")], "s");
-}
-
-
-pub static frobulator: DBusInterface = {
-    let mut frobulator = DBusInterface::new("org.yasashiisyndicate.Frobulator");
-    frobulator.add_method("Frobulate", "s", vec![String::from_str("value")], "s");
-    frobulator
-};
