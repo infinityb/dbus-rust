@@ -84,9 +84,9 @@ impl DBusInterface {
 pub type DBusDispatchStatus = self::DBusDispatchStatus::DBusDispatchStatus;
 pub mod DBusDispatchStatus {
     // from dbus.h
-    pub static DATA_REMAINS: i32 = 0;
-    pub static COMPLETE: i32 = 1;
-    pub static NEED_MEMORY: i32 = 2;
+    pub const DATA_REMAINS: i32 = 0;
+    pub const COMPLETE: i32 = 1;
+    pub const NEED_MEMORY: i32 = 2;
 
     pub enum DBusDispatchStatus {
         DataRemains,
@@ -111,9 +111,9 @@ pub mod DBusDispatchStatus {
 pub type DBusHandlerResult = self::DBusHandlerResult::DBusHandlerResult;
 pub mod DBusHandlerResult {
     // from dbus.h
-    pub static HANDLED: i32 = 0;
-    pub static NOT_YET_HANDLED: i32 = 1;
-    pub static NEED_MEMORY: i32 = 2;
+    pub const HANDLED: i32 = 0;
+    pub const NOT_YET_HANDLED: i32 = 1;
+    pub const NEED_MEMORY: i32 = 2;
 
     #[repr(C)]
     pub enum DBusHandlerResult {
