@@ -1,6 +1,9 @@
 Current Status
 ==============
-Doesn't work.  Put on hold for now.
+Doesn't work.  Put on hold indefinitely.
+
+
+Check out [diwic's bindings](https://github.com/diwic/dbus-rs)
 
 
 dbus-rust
